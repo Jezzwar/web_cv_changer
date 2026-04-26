@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { supabase } = require('../supabase');
+const { updateFromHeaders, getStatus: usageStatus } = require('../usage');
+const usage = { getStatus: usageStatus };
 
 const router = express.Router();
 const upload = multer({ dest: os.tmpdir() });
@@ -229,6 +231,104 @@ function parseResumeStructure(text) {
   return sections;
 }
 
+// Groq AI resume adaptation — integrates missing skills, applies suggestions, normalises formatting
+async function adaptResumeWithAI(resumeText, missingSkills, jobText, suggestions = []) {
+  const hasMissing = missingSkills.length > 0;
+  const hasSuggestions = suggestions.length > 0;
+
+  const prompt = `You are an expert resume writer. Work through the following steps in order, then output the final resume.
+
+${hasMissing ? `STEP 1 — ADD MISSING SKILLS TO SKILLS SECTION
+Skills to add: ${missingSkills.join(', ')}
+
+Analyse the existing Skills section structure, then choose ONE of these approaches:
+
+A) Skills section already has named categories (e.g. "Frontend: React, Vue" or "Languages | Frameworks | Tools"):
+   - Add each new skill to the most appropriate existing category
+   - If a skill doesn't fit any existing category, create a new category with a fitting name and place it there
+   - Keep the same formatting style (colon, pipe, dash, etc.) as the existing categories
+
+B) Skills section is a flat list with no categories:
+   - If the new skills clearly belong to a domain that is not represented at all (e.g. adding Docker/Kubernetes/AWS to a resume with only frontend skills), introduce a new category line for that domain and add the skills under it
+   - If the new skills fit naturally among existing skills (same domain), just append them to the existing list
+   - Do NOT restructure or split up the original flat list — only add
+
+` : ''}STEP ${hasMissing ? 2 : 1} — ENRICH EXPERIENCE BULLETS
+${hasSuggestions ? `The recruiter analysis identified these improvement areas:
+${suggestions.map((s, i) => `  ${i + 1}. ${s}`).join('\n')}
+
+` : ''}For each missing skill and each suggestion above, scan every Experience and Projects bullet point:
+- If the described work is clearly related to that skill or suggestion, expand or rewrite that bullet to naturally incorporate it
+- Example: bullet "deployed backend services" + missing skill "Docker" → "deployed backend services using Docker containers"
+- Example: bullet "built data pipelines" + suggestion "highlight CI/CD" → "built and automated data pipelines with CI/CD"
+- Be specific and natural — one or two added words is enough; do not pad unnecessarily
+- Do NOT add skills to positions where they genuinely do not fit
+- Do NOT invent accomplishments — only surface what is already implied by the existing description
+
+STEP ${hasMissing ? 3 : 2} — NORMALISE FORMATTING
+Output the resume in this exact structure:
+
+[Full Name]
+[contact: email | phone | location]
+
+SECTION NAME
+Company | Role | Date range
+- bullet point
+- bullet point
+
+NEXT SECTION NAME
+...
+
+Rules:
+- Section headers UPPERCASE on their own line, no "- " prefix
+- Company/Institution | Role | Date lines get NO "- " prefix — they stand alone as bold headers
+- Every experience/achievement bullet: "- " prefix, no tabs, no *, •, ▸
+- Remove all tabs and extra leading spaces
+- Keep ALL original content
+
+RESUME TO ADAPT:
+${resumeText.slice(0, 3800)}
+
+Output the adapted resume first. Then on a new line write exactly:
+---CHANGES---
+Then a JSON array listing every change made, like this:
+[
+  {"section": "SKILLS", "added": ["Docker", "TypeScript"]},
+  {"section": "EXPERIENCE", "position": "Company | Role | Dates", "added": ["added Docker to deployment bullet", "added CI/CD pipeline mention"]}
+]
+Only list things you actually changed. Start the resume with the candidate's name — no preamble.`;
+
+  const { data: completion, response: httpRes } = await groqClient.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.2,
+    max_tokens: 4096,
+  }).withResponse();
+  updateFromHeaders(httpRes.headers);
+
+  const raw = completion.choices[0].message.content.trim();
+  const sep = raw.indexOf('---CHANGES---');
+
+  let resume, changes = [];
+  if (sep !== -1) {
+    resume = raw.slice(0, sep).trim();
+    try {
+      const jsonStr = raw.slice(sep + 13).trim();
+      changes = JSON.parse(jsonStr);
+    } catch {
+      console.warn('[AI] Could not parse changes JSON');
+    }
+  } else {
+    resume = raw;
+  }
+
+  if (resume.length < resumeText.length * 0.5) {
+    console.warn('[AI] adaptResume returned suspiciously short text, using fallback');
+    return { resume: buildAdaptedResume(resumeText, missingSkills), changes: [] };
+  }
+  return { resume, changes };
+}
+
 // Groq AI analysis — returns same shape as regex analysis
 async function analyzeWithAI(jobText, resumeText) {
   const prompt = `You are a resume analysis expert. Compare the job vacancy and the candidate's resume below.
@@ -258,12 +358,13 @@ Rules:
 - suggestions: 2-4 short actionable tips to improve the resume for this vacancy
 - Understand both Russian and English text`;
 
-  const completion = await groqClient.chat.completions.create({
-    model: 'llama3-70b-8192',
+  const { data: completion, response: httpRes } = await groqClient.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.2,
     max_tokens: 1024,
-  });
+  }).withResponse();
+  updateFromHeaders(httpRes.headers);
 
   const raw = completion.choices[0].message.content.trim();
   const json = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
@@ -284,6 +385,18 @@ async function extractTextFromFile(file) {
 
 router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), async (req, res) => {
   try {
+    // Block when <10% of daily Groq quota remains
+    if (groqClient) {
+      const { blocked, analysesLeft, resetIn } = usage.getStatus();
+      if (blocked) {
+        return res.status(429).json({
+          error: `AI quota exhausted — only ${analysesLeft} analyses left. Resets in ${resetIn}.`,
+          quotaExhausted: true,
+          usage: usage.getStatus(),
+        });
+      }
+    }
+
     let jobText = req.body.jobText || '';
     let resumeText = req.body.resumeText || '';
 
@@ -330,10 +443,24 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
         ? Math.round((matched.length / jobSkills.length) * 100) : 0;
     }
 
-    // Build adapted resume
-    const adaptedResume = buildAdaptedResume(resumeText, missing);
+    // Build adapted resume — AI normalises formatting + integrates skills; regex fallback otherwise
+    let adaptedResume, adaptChanges = [];
+    if (groqClient) {
+      console.log('[AI] Adapting and normalising resume with Groq...');
+      try {
+        const result = await adaptResumeWithAI(resumeText, missing, jobText, suggestions);
+        adaptedResume = result.resume;
+        adaptChanges  = result.changes;
+        console.log('[AI] Resume adaptation done, changes:', adaptChanges.length);
+      } catch (adaptErr) {
+        console.warn('[AI] Resume adaptation failed, using regex fallback:', adaptErr.message);
+        adaptedResume = buildAdaptedResume(resumeText, missing);
+      }
+    } else {
+      adaptedResume = buildAdaptedResume(resumeText, missing);
+    }
 
-    // 4. Save to Supabase
+    // Save to Supabase
     if (supabase) {
       await supabase.from('vacancies').insert({
         description: jobText.slice(0, 5000),
@@ -360,8 +487,10 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
       matchScore,
       suggestions,
       aiMode: !!groqClient,
+      usage: usage.getStatus(),
       resumeSections: Object.keys(parseResumeStructure(resumeText)),
       adaptedResume,
+      adaptChanges,
       originalResume: resumeText,
       jobText,
     });

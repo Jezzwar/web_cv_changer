@@ -6,3 +6,7 @@ server/.env
 client/.env
 client/.env.local
 *.pdf
+
+.vercel
+.env*.local
+server/usage-state.json

@@ -92,6 +92,37 @@ export default function DownloadStep({ data, onRestart, token }) {
             ))}
           </div>
 
+          {data.adaptChanges?.length > 0 && (
+            <div className="w-full glass-card rounded-xl p-4 flex flex-col gap-3">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                What was changed
+              </h4>
+              <div className="flex flex-col gap-3">
+                {data.adaptChanges.map((change, i) => (
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-violet-400 uppercase tracking-wide">
+                        {change.section}
+                      </span>
+                      {change.position && (
+                        <span className="text-xs text-slate-500">— {change.position}</span>
+                      )}
+                    </div>
+                    <ul className="flex flex-col gap-0.5 pl-3">
+                      {change.added.map((item, j) => (
+                        <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5">
+                          <span className="text-emerald-400 mt-0.5 shrink-0">+</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <a
             href={pdfUrl}
             download="adapted_resume.pdf"

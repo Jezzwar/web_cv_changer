@@ -15,7 +15,7 @@ const INPUT_STYLE = {
   boxSizing: 'border-box',
 };
 
-function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
+function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text, token }) {
   const modes = showUrlMode ? ['file', 'url', 'text'] : ['file', 'text'];
   const [mode, setMode] = useState('file');
   const [url, setUrl] = useState('');
@@ -38,7 +38,10 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
     try {
       const res = await fetch('/api/parse-url', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ url: url.trim() }),
       });
       const data = await res.json();
@@ -152,7 +155,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
   );
 }
 
-export default function UploadStep({ onNext, token }) {
+export default function UploadStep({ onNext, token, quotaBlocked }) {
   const [jobFile, setJobFile] = useState(null);
   const [jobText, setJobText] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -167,7 +170,7 @@ export default function UploadStep({ onNext, token }) {
     setJobFile(null);
   };
 
-  const canProceed = (jobFile || jobText) && (resumeFile || resumeText);
+  const canProceed = (jobFile || jobText) && (resumeFile || resumeText) && !quotaBlocked;
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -207,6 +210,7 @@ export default function UploadStep({ onNext, token }) {
           onUrl={handleJobUrl}
           file={jobFile}
           text={jobText}
+          token={token}
         />
         <FileUpload
           label="Резюме"
@@ -225,6 +229,12 @@ export default function UploadStep({ onNext, token }) {
       {error && (
         <div style={{ background: '#fb718520', border: '1px solid #fb718540', borderRadius: '10px', padding: '12px 16px', color: '#fb7185', fontSize: '14px' }}>
           {error}
+        </div>
+      )}
+
+      {quotaBlocked && (
+        <div style={{ background: '#fb718520', border: '1px solid #fb718540', borderRadius: '10px', padding: '12px 16px', color: '#fb7185', fontSize: '14px' }}>
+          Daily AI quota exhausted — analysis will be available again at midnight UTC.
         </div>
       )}
 

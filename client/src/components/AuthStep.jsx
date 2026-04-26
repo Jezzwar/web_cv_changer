@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../lib/supabase';
 
 export default function AuthStep({ onAuthSuccess }) {
   const [email, setEmail] = useState('');
@@ -28,13 +23,11 @@ export default function AuthStep({ onAuthSuccess }) {
 
       if (response.error) {
         setError(response.error.message);
-        setLoading(false);
         return;
       }
 
       if (!response.data.session) {
         setError('Please check your email to confirm registration');
-        setLoading(false);
         return;
       }
 

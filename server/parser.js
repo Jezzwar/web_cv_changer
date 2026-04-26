@@ -30,16 +30,23 @@ const SITE_CONFIGS = [
   },
 ];
 
+// Patterns that indicate an auth wall / redirect instead of actual content
+const AUTH_WALL_PATTERNS = [
+  { site: /linkedin\.com/, signal: /authwall|sign in|join linkedin|more than \d+ вакансии|more than \d+ jobs/i },
+  { site: /linkedin\.com/, signal: /uis-middleware-auth/i },
+];
+
 async function parseJobFromUrl(url) {
-  const { data, headers } = await axios.get(url, {
+  const response = await axios.get(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
     },
     timeout: 10000,
+    maxRedirects: 5,
   });
 
-  const $ = cheerio.load(data);
+  const $ = cheerio.load(response.data);
 
   // Remove noise
   $('script, style, nav, footer, header, [class*="cookie"], [class*="banner"]').remove();
@@ -57,7 +64,6 @@ async function parseJobFromUrl(url) {
   // Fallback: grab biggest text block
   if (!body) {
     title = $('h1').first().text().trim();
-    // Find the element with the most text content
     let maxLen = 0;
     $('div, section, article, main').each((_, el) => {
       const txt = $(el).text().trim();
@@ -68,13 +74,28 @@ async function parseJobFromUrl(url) {
     });
   }
 
-  // Clean up whitespace
   const cleanText = (t) => t.replace(/\s{3,}/g, '\n\n').replace(/\t/g, ' ').trim();
+  const finalTitle = cleanText(title);
+  const finalBody = cleanText(body || $('body').text());
 
-  return {
-    title: cleanText(title),
-    text: cleanText(body || $('body').text()),
-  };
+  // Detect auth wall — site returned login page instead of job content
+  for (const { site, signal } of AUTH_WALL_PATTERNS) {
+    if (site.test(url) && (signal.test(finalTitle) || signal.test(finalBody.slice(0, 500)))) {
+      const err = new Error(
+        'LinkedIn требует авторизации для просмотра вакансий. ' +
+        'Откройте вакансию в браузере, скопируйте текст описания и вставьте его через вкладку «Text».'
+      );
+      err.authWall = true;
+      throw err;
+    }
+  }
+
+  // Check that we got meaningful content
+  if (!config && finalBody.length < 200) {
+    throw new Error('Не удалось извлечь текст со страницы. Попробуйте скопировать текст вручную через вкладку «Text».');
+  }
+
+  return { title: finalTitle, text: finalBody };
 }
 
 module.exports = { parseJobFromUrl };
