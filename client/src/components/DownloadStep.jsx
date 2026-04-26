@@ -23,7 +23,11 @@ export default function DownloadStep({ data, onRestart, token }) {
           addedSkills: data.missing,
         }),
       });
-      if (!res.ok) throw new Error('PDF generation failed');
+      if (!res.ok) {
+        let msg = 'PDF generation failed';
+        try { const e = await res.json(); msg = e.error || msg; } catch { /* empty body */ }
+        throw new Error(msg);
+      }
       const blob = await res.blob();
       setPdfUrl(URL.createObjectURL(blob));
     } catch (e) {

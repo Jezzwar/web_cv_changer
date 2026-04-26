@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 
+async function safeJson(res) {
+  try { return await res.json(); } catch { return {}; }
+}
+
 const INPUT_STYLE = {
   width: '100%',
   background: '#0a0a1580',
@@ -44,8 +48,8 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text, tok
         },
         body: JSON.stringify({ url: url.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
       onUrl(data.text, data.title);
     } catch (e) {
       setUrlError(e.message);
@@ -57,7 +61,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text, tok
   const modeLabels = { file: 'File', url: 'URL', text: 'Text' };
 
   return (
-    <div style={{ border: '1px solid #ffffff40', borderRadius: '12px', padding: '20px', background: '#12121f', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ border: '1px solid #ffffff40', borderRadius: '14px', padding: '26px', background: '#12121f', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '15px' }}>{label}</span>
@@ -79,7 +83,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text, tok
       {mode === 'file' && (
         <div {...getRootProps()} style={{
           border: `2px dashed ${file ? '#4ade80' : isDragActive ? '#ffffff' : '#ffffff40'}`,
-          borderRadius: '10px', padding: '36px 20px', textAlign: 'center', cursor: 'pointer',
+          borderRadius: '10px', padding: '48px 20px', textAlign: 'center', cursor: 'pointer',
           background: file ? '#4ade8010' : isDragActive ? '#ffffff08' : '#0a0a1580',
           transition: 'all 0.2s',
         }}>
@@ -189,8 +193,8 @@ export default function UploadStep({ onNext, token, quotaBlocked }) {
         },
         body: formData 
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Ошибка анализа');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
       onNext(data);
     } catch (e) {
       setError(e.message);
@@ -201,9 +205,10 @@ export default function UploadStep({ onNext, token, quotaBlocked }) {
 
   return (
     <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      <style>{`@media(max-width:640px){.upload-grid{grid-template-columns:1fr!important}}`}</style>
+      <div className="upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <FileUpload
-          label="Вакансия"
+          label="Job Vacancy"
           showUrlMode={true}
           onFile={(f) => { setJobFile(f); setJobText(''); setJobTitle(''); }}
           onText={(t) => { setJobText(t); setJobFile(null); }}
@@ -213,7 +218,7 @@ export default function UploadStep({ onNext, token, quotaBlocked }) {
           token={token}
         />
         <FileUpload
-          label="Резюме"
+          label="Resume"
           showUrlMode={false}
           onFile={(f) => { setResumeFile(f); setResumeText(''); }}
           onText={(t) => { setResumeText(t); setResumeFile(null); }}
@@ -222,9 +227,6 @@ export default function UploadStep({ onNext, token, quotaBlocked }) {
           text={resumeText}
         />
       </div>
-
-      {/* Mobile: stack */}
-      <style>{`@media(max-width:640px){.upload-grid{grid-template-columns:1fr!important}}`}</style>
 
       {error && (
         <div style={{ background: '#fb718520', border: '1px solid #fb718540', borderRadius: '10px', padding: '12px 16px', color: '#fb7185', fontSize: '14px' }}>
