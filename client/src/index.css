@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0a0a12;
+  --surface: #111120;
+  --card: #16162a;
+  --border: #2a2a4a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--ink);
+  color: #e2e8f0;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Gradient orbs */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.orb-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #7c3aed, transparent 70%);
+  top: -200px;
+  right: -100px;
+}
+
+.orb-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #0891b2, transparent 70%);
+  bottom: -150px;
+  left: -100px;
+}
+
+/* Card styles */
+.glass-card {
+  background: rgba(22, 22, 42, 0.8);
+  border: 1px solid rgba(42, 42, 74, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+/* Drop zone */
+.drop-zone {
+  transition: all 0.2s ease;
+}
+.drop-zone.active {
+  border-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.05);
+}
+
+/* Progress step */
+.step-line {
+  height: 2px;
+  transition: background 0.4s ease;
+}
+
+/* Skill badge */
+.skill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.skill-match {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.skill-missing {
+  background: rgba(251, 113, 133, 0.12);
+  color: #fb7185;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+}
+
+.skill-neutral {
+  background: rgba(167, 139, 250, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+/* Textarea */
+textarea {
+  resize: vertical;
+}
+
+/* Score ring */
+@keyframes ring-fill {
+  from { stroke-dashoffset: 283; }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+.score-ring-circle {
+  animation: ring-fill 1s ease-out forwards;
+  transform-origin: center;
+  transform: rotate(-90deg);
+}
+
+/* Button hover */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.btn-primary:hover::after {
+  opacity: 1;
+}
+
+/* Fade in */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fadeUp 0.4s ease-out forwards;
+}
+
+.fade-up-delay-1 { animation: fadeUp 0.4s ease-out 0.08s forwards; opacity: 0; }
+.fade-up-delay-2 { animation: fadeUp 0.4s ease-out 0.16s forwards; opacity: 0; }
+.fade-up-delay-3 { animation: fadeUp 0.4s ease-out 0.24s forwards; opacity: 0; }

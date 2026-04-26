@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: adapt-resume-server
+    runtime: node
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: PORT
+        value: 3001
