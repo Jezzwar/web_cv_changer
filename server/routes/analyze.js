@@ -86,7 +86,7 @@ function normalize(str) {
   return str.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-// Extract canonical skill names found in text
+// Extract canonical skill names from text
 function extractSkills(text) {
   const found = new Set();
   const lower = normalize(text);
@@ -104,6 +104,40 @@ function extractSkills(text) {
   return [...found];
 }
 
+// Extract ONLY from the Skills section of a resume.
+// Falls back to full text if no Skills section found.
+function extractResumeSkills(text) {
+  const lines = text.split('\n');
+  const SKILLS_HEADER = /^(skills?|навыки|технические\s*навыки|hard\s*skills|tech\s*skills|core\s*skills)/i;
+  const ANY_HEADER    = /^(experience|опыт|education|образование|projects?|проекты|summary|about|contacts?)/i;
+
+  // Find skills section boundaries
+  let start = -1;
+  let end   = lines.length;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (start === -1 && SKILLS_HEADER.test(trimmed)) {
+      start = i + 1;
+    } else if (start !== -1 && ANY_HEADER.test(trimmed)) {
+      end = i;
+      break;
+    }
+  }
+
+  if (start !== -1) {
+    // Skills section found — extract only from it
+    const skillsText = lines.slice(start, end).join('\n');
+    console.log('[resume] skills section found, lines', start, '-', end);
+    console.log('[resume] skills text:', skillsText.slice(0, 200));
+    return extractSkills(skillsText);
+  }
+
+  // No skills section — fall back to full text but warn
+  console.log('[resume] no skills section found, scanning full text');
+  return extractSkills(text);
+}
+
 // Extract Russian soft/contextual requirements
 function extractRuRequirements(text) {
   const found = new Set();
@@ -112,7 +146,6 @@ function extractRuRequirements(text) {
     let match;
     while ((match = re.exec(text)) !== null) {
       const phrase = match[1].trim();
-      // Skip if it's just a tech skill we already handle
       if (phrase.length > 2 && phrase.length < 80) {
         found.add(phrase.charAt(0).toUpperCase() + phrase.slice(1));
       }
@@ -121,11 +154,17 @@ function extractRuRequirements(text) {
   return [...found];
 }
 
-// Exact match by canonical name
+// Match job skills vs resume skills
 function matchSkills(jobSkills, resumeSkills) {
   const resumeSet = new Set(resumeSkills.map(normalize));
   const matched = jobSkills.filter(s => resumeSet.has(normalize(s)));
   const missing = jobSkills.filter(s => !resumeSet.has(normalize(s)));
+
+  console.log('[match] job:', jobSkills);
+  console.log('[match] resume:', resumeSkills);
+  console.log('[match] matched:', matched);
+  console.log('[match] missing:', missing);
+
   return { matched, missing };
 }
 
@@ -205,8 +244,8 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
     }
 
     // 1. Extract skills
-    const jobSkills = extractSkills(jobText);
-    const resumeSkills = extractSkills(resumeText);
+    const jobSkills = extractSkills(jobText);          // scan full job description
+    const resumeSkills = extractResumeSkills(resumeText); // scan only Skills section
     const jobRuReqs = extractRuRequirements(jobText);
 
     // 2. Match — exact canonical comparison
