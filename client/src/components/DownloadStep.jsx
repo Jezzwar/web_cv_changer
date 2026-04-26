@@ -17,7 +17,6 @@ export default function DownloadStep({ data, onRestart }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resumeText: data.adaptedResume,
-          name: data.name || '',
           addedSkills: data.missing,
         }),
       });

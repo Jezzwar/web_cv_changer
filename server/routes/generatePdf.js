@@ -10,17 +10,18 @@ const MARGIN = 50;
 const PAGE_W = 595;
 const PAGE_H = 842;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+const BOTTOM_LIMIT = MARGIN + 10;
 
-// Works both from server/routes/ and from api/ (Vercel)
 const FONTS_DIR = fs.existsSync(path.join(__dirname, '../fonts'))
   ? path.join(__dirname, '../fonts')
   : path.join(__dirname, '../../server/fonts');
 
 const FONT_REGULAR = path.join(FONTS_DIR, 'Roboto-Regular.ttf');
-const FONT_BOLD = path.join(FONTS_DIR, 'Roboto-Bold.ttf');
+const FONT_BOLD    = path.join(FONTS_DIR, 'Roboto-Bold.ttf');
 
 const SECTION_RE = /^(skills?|навыки|опыт|experience|education|образование|summary|about|обо\s*мне|projects?|проекты|contacts?|контакты|hard\s*skills|soft\s*skills)/i;
 
+// Word-wrap: splits text into lines that fit within maxWidth
 function wrapText(text, font, fontSize, maxWidth) {
   const words = text.split(' ');
   const lines = [];
@@ -28,73 +29,46 @@ function wrapText(text, font, fontSize, maxWidth) {
 
   for (const word of words) {
     const test = current ? current + ' ' + word : word;
-    try {
-      if (font.widthOfTextAtSize(test, fontSize) > maxWidth && current) {
-        lines.push(current);
-        current = word;
-      } else {
-        current = test;
-      }
-    } catch {
+    let testWidth = 0;
+    try { testWidth = font.widthOfTextAtSize(test, fontSize); } catch { /* skip */ }
+
+    if (testWidth > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
       current = test;
     }
   }
   if (current) lines.push(current);
-  return lines;
+  return lines.length ? lines : [''];
 }
 
-async function generateResumePDF({ resumeText, name, addedSkills = [] }) {
+async function generateResumePDF({ resumeText, addedSkills = [] }) {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  const regularBytes = fs.readFileSync(FONT_REGULAR);
-  const boldBytes = fs.readFileSync(FONT_BOLD);
-  const fontRegular = await pdfDoc.embedFont(regularBytes);
-  const fontBold = await pdfDoc.embedFont(boldBytes);
+  const fontRegular = await pdfDoc.embedFont(fs.readFileSync(FONT_REGULAR));
+  const fontBold    = await pdfDoc.embedFont(fs.readFileSync(FONT_BOLD));
 
-  const cBg = rgb(0.055, 0.055, 0.1);
   const cAccent = rgb(0.53, 0.39, 0.96);
-  const cText = rgb(0.12, 0.12, 0.18);
-  const cMuted = rgb(0.45, 0.45, 0.55);
-  const cAdded = rgb(0.13, 0.75, 0.47);
-  const cWhite = rgb(1, 1, 1);
+  const cText   = rgb(0.08, 0.08, 0.12);
+  const cMuted  = rgb(0.45, 0.45, 0.55);
+  const cAdded  = rgb(0.08, 0.65, 0.40);
 
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H;
+  let y = PAGE_H - MARGIN;
 
   const newPage = () => {
     page = pdfDoc.addPage([PAGE_W, PAGE_H]);
     y = PAGE_H - MARGIN;
   };
 
-  const checkY = (needed = 20) => {
-    if (y - needed < MARGIN + 20) newPage();
+  const checkY = (needed) => {
+    if (y - needed < BOTTOM_LIMIT) newPage();
   };
 
-  // Header
-  page.drawRectangle({ x: 0, y: PAGE_H - 80, width: PAGE_W, height: 80, color: cBg });
-  page.drawText(name || 'Resume', { x: MARGIN, y: PAGE_H - 38, size: 22, font: fontBold, color: cWhite });
-  page.drawText('Adapted with ResumeAI', { x: MARGIN, y: PAGE_H - 60, size: 9, font: fontRegular, color: rgb(0.6, 0.6, 0.8) });
-
-  y = PAGE_H - 98;
-
-  // Added skills banner
-  if (addedSkills.length > 0) {
-    checkY(44);
-    const bannerText = '★  Added by AI: ' + addedSkills.join(' · ');
-    page.drawRectangle({ x: MARGIN, y: y - 36, width: CONTENT_W, height: 36, color: rgb(0.53, 0.39, 0.96, 0.07), borderColor: cAccent, borderWidth: 0.5 });
-    page.drawText(bannerText.length > 90 ? bannerText.slice(0, 90) + '...' : bannerText, {
-      x: MARGIN + 10, y: y - 23, size: 8.5, font: fontRegular, color: cAccent,
-    });
-    y -= 48;
-  }
-
-  y -= 12;
-
-  // Resume body
-  const lines = resumeText.split('\n');
-
-  for (const rawLine of lines) {
+  // Render resume lines
+  for (const rawLine of resumeText.split('\n')) {
     const line = rawLine.trimEnd();
 
     if (!line.trim()) {
@@ -102,54 +76,63 @@ async function generateResumePDF({ resumeText, name, addedSkills = [] }) {
       continue;
     }
 
-    const isSection = SECTION_RE.test(line.trim());
-
-    if (isSection) {
-      checkY(28);
-      y -= 8;
-      page.drawText(line.trim().toUpperCase(), { x: MARGIN, y, size: 9, font: fontBold, color: cAccent });
+    if (SECTION_RE.test(line.trim())) {
+      checkY(26);
+      y -= 10;
+      page.drawText(line.trim().toUpperCase(), {
+        x: MARGIN, y, size: 9.5, font: fontBold, color: cAccent,
+        maxWidth: CONTENT_W,
+      });
       y -= 5;
-      page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.5, color: cAccent, opacity: 0.35 });
-      y -= 12;
+      page.drawLine({
+        start: { x: MARGIN, y },
+        end: { x: PAGE_W - MARGIN, y },
+        thickness: 0.5, color: cAccent, opacity: 0.3,
+      });
+      y -= 10;
       continue;
     }
 
-    const isAddedLine = addedSkills.length > 0 &&
+    const isAdded = addedSkills.length > 0 &&
       addedSkills.some(s => line.toLowerCase().includes(s.toLowerCase()));
 
-    const fontSize = 9.5;
-    const lineHeight = fontSize * 1.6;
-    const wrapped = wrapText(line, fontRegular, fontSize, CONTENT_W);
+    const fontSize   = 9.5;
+    const lineHeight = fontSize * 1.65;
+    const wrapped    = wrapText(line, fontRegular, fontSize, CONTENT_W);
 
     for (const wLine of wrapped) {
       checkY(lineHeight);
       page.drawText(wLine, {
         x: MARGIN, y,
         size: fontSize,
-        font: isAddedLine ? fontBold : fontRegular,
-        color: isAddedLine ? cAdded : cText,
+        font:  isAdded ? fontBold    : fontRegular,
+        color: isAdded ? cAdded      : cText,
+        maxWidth: CONTENT_W,
       });
       y -= lineHeight;
     }
   }
 
-  // Footer on all pages
+  // Page numbers
   const pages = pdfDoc.getPages();
-  pages.forEach((p, i) => {
-    p.drawText(`ResumeAI  ·  page ${i + 1} of ${pages.length}`, {
-      x: MARGIN, y: 20, size: 7.5, font: fontRegular, color: cMuted,
+  if (pages.length > 1) {
+    pages.forEach((p, i) => {
+      p.drawText(`page ${i + 1} / ${pages.length}`, {
+        x: PAGE_W - MARGIN - 50, y: 20,
+        size: 7.5, font: fontRegular, color: cMuted,
+      });
     });
-  });
+  }
 
   return pdfDoc.save();
 }
 
 router.post('/', async (req, res) => {
-  const { resumeText, name, addedSkills = [] } = req.body;
+  const { resumeText, addedSkills = [] } = req.body;
   if (!resumeText) return res.status(400).json({ error: 'resumeText is required' });
 
   try {
-    const pdfBytes = await generateResumePDF({ resumeText, name, addedSkills });
+    const pdfBytes = await generateResumePDF({ resumeText, addedSkills });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="adapted_resume.pdf"');
     res.setHeader('Content-Length', pdfBytes.length);

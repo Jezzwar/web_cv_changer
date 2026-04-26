@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 
 export default function ReviewStep({ data, onNext, onBack }) {
   const [resumeText, setResumeText] = useState(data.adaptedResume);
-  const [name, setName] = useState('');
-
   return (
     <div className="fade-up flex flex-col gap-6">
       <div className="glass-card rounded-2xl p-5 flex flex-col gap-3">
@@ -26,17 +24,6 @@ export default function ReviewStep({ data, onNext, onBack }) {
         )}
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-500 uppercase tracking-wider">Your name for PDF header</label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Full name (optional)"
-            className="bg-[#0d0d1f] border border-[#2a2a4a] rounded-xl px-3 py-2 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-colors"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500 uppercase tracking-wider">Resume text (editable)</label>
           <textarea
             value={resumeText}
@@ -54,7 +41,7 @@ export default function ReviewStep({ data, onNext, onBack }) {
           Back
         </button>
         <button
-          onClick={() => onNext({ ...data, adaptedResume: resumeText, name })}
+          onClick={() => onNext({ ...data, adaptedResume: resumeText })}
           className="btn-primary flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-xl transition-all"
         >
           Generate PDF
