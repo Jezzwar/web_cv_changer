@@ -4,9 +4,9 @@ const path = require('path');
 const STATE_FILE   = path.join(__dirname, 'usage-state.json');
 const BLOCK_AT_PCT = 0.10;
 
-// ── Persist helpers ───────────────────────────────────────────────────────────
+// ── File persistence helpers ──────────────────────────────────────────────────
 
-function loadState() {
+function loadFileState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
@@ -15,17 +15,67 @@ function loadState() {
   return { limit: 1000, remaining: null, resetIn: null, updatedAt: null };
 }
 
-function saveState(s) {
+function saveFileState(s) {
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); } catch { /* ignore */ }
 }
 
-// ── In-memory state (seeded from disk on module load) ────────────────────────
+// ── Supabase persistence ──────────────────────────────────────────────────────
 
-let state = loadState();
+let supabaseClient = null;
+try {
+  const { supabase } = require('./supabase');
+  supabaseClient = supabase;
+} catch { /* not available */ }
+
+async function loadSupabaseState() {
+  if (!supabaseClient) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .from('app_usage')
+      .select('remaining, limit_count, reset_in, updated_at')
+      .eq('id', 1)
+      .single();
+    if (error || !data) return null;
+    return {
+      limit:     data.limit_count ?? 1000,
+      remaining: data.remaining,
+      resetIn:   data.reset_in,
+      updatedAt: data.updated_at,
+    };
+  } catch { return null; }
+}
+
+async function saveSupabaseState(s) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('app_usage').upsert({
+      id:          1,
+      remaining:   s.remaining,
+      limit_count: s.limit,
+      reset_in:    s.resetIn,
+      updated_at:  s.updatedAt,
+    });
+  } catch { /* ignore */ }
+}
+
+// ── In-memory state (seeded from file on startup, then from Supabase async) ──
+
+let state = loadFileState();
+
+// On startup: pull the latest from Supabase (more reliable across deploys)
+loadSupabaseState().then(remote => {
+  if (!remote) return;
+  // Only override if Supabase data is newer or local has no real data
+  const localHasData = state.remaining !== null;
+  const remoteNewer  = remote.updatedAt && (!state.updatedAt || remote.updatedAt > state.updatedAt);
+  if (!localHasData || remoteNewer) {
+    state = remote;
+    saveFileState(state);
+  }
+}).catch(() => {});
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// Called after every Groq API call with the HTTP response headers.
 function updateFromHeaders(headers) {
   const limit     = parseInt(headers.get('x-ratelimit-limit-requests'),     10);
   const remaining = parseInt(headers.get('x-ratelimit-remaining-requests'), 10);
@@ -36,12 +86,13 @@ function updateFromHeaders(headers) {
   if (resetIn)           state.resetIn   = resetIn;
   state.updatedAt = new Date().toISOString();
 
-  saveState(state);
+  saveFileState(state);
+  saveSupabaseState(state).catch(() => {});
 }
 
 function getStatus() {
   const limit     = state.limit ?? 1000;
-  const remaining = state.remaining !== null ? state.remaining : limit; // optimistic until first call
+  const remaining = state.remaining !== null ? state.remaining : limit;
 
   const pct     = remaining / limit;
   const blocked = pct < BLOCK_AT_PCT;

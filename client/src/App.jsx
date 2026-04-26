@@ -158,37 +158,35 @@ export default function App() {
             </div>
 
             {token && (
-              <div className="flex items-center gap-4">
-                {usageData && (
-                  <div className="flex flex-col items-end gap-0.5" title={`Resets at ${new Date(usageData.resetsAt).toLocaleTimeString()}`}>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-xs font-mono ${usageData.blocked ? 'text-rose-400' : usageData.percentRemaining <= 25 ? 'text-amber-400' : 'text-slate-400'}`}>
-                        {usageData.blocked ? 'quota exhausted' : `${usageData.analysesLeft} / ${usageData.analysesTotal} analyses`}
-                      </span>
-                    </div>
-                    <div className="w-28 h-1 rounded-full bg-[#2a2a4a] overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${usageData.blocked ? 'bg-rose-500' : usageData.percentRemaining <= 25 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                        style={{ width: `${usageData.percentRemaining}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1.5"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Sign out
-                </button>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign out
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between ml-12">
+            <p className="text-slate-500 text-sm">
+              Adapt your resume to any job in seconds
+            </p>
+            {token && usageData && (
+              <div className="flex flex-col items-end gap-0.5">
+                <span className={`text-xs font-mono ${usageData.blocked ? 'text-rose-400' : usageData.percentRemaining <= 25 ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {usageData.blocked ? 'quota exhausted' : `${usageData.analysesLeft} / ${usageData.analysesTotal} analyses`}
+                </span>
+                <div className="w-24 h-1 rounded-full bg-[#2a2a4a] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${usageData.blocked ? 'bg-rose-500' : usageData.percentRemaining <= 25 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                    style={{ width: `${usageData.percentRemaining}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
-          <p className="text-slate-500 text-sm ml-12">
-            Adapt your resume to any job in seconds
-          </p>
         </header>
 
         <div className="mb-8 fade-up fade-up-delay-1">
