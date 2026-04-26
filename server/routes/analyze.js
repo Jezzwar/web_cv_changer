@@ -460,17 +460,21 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
       adaptedResume = buildAdaptedResume(resumeText, missing);
     }
 
-    // Save to Supabase
+    // Save to Supabase (best-effort — tables may not exist)
     if (supabase) {
-      await supabase.from('vacancies').insert({
-        description: jobText.slice(0, 5000),
-        skills_required: jobSkills.join(', '),
-      });
-      await supabase.from('resumes').insert({
-        skills: resumeSkills.join(', '),
-        adapted_text: adaptedResume.slice(0, 10000),
-        match_score: matchScore,
-      });
+      try {
+        await supabase.from('vacancies').insert({
+          description: jobText.slice(0, 5000),
+          skills_required: jobSkills.join(', '),
+        });
+        await supabase.from('resumes').insert({
+          skills: resumeSkills.join(', '),
+          adapted_text: adaptedResume.slice(0, 10000),
+          match_score: matchScore,
+        });
+      } catch (dbErr) {
+        console.warn('[DB] Supabase insert skipped:', dbErr.message);
+      }
     }
 
     // Cleanup
