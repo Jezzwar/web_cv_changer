@@ -5,10 +5,10 @@ import ReviewStep from './components/ReviewStep';
 import DownloadStep from './components/DownloadStep';
 
 const STEPS = [
-  { id: 0, label: 'Загрузка' },
-  { id: 1, label: 'Анализ' },
-  { id: 2, label: 'Просмотр' },
-  { id: 3, label: 'Скачать' },
+  { id: 0, label: 'Upload' },
+  { id: 1, label: 'Analysis' },
+  { id: 2, label: 'Review' },
+  { id: 3, label: 'Download' },
 ];
 
 function ProgressBar({ step }) {
@@ -92,7 +92,7 @@ export default function App() {
             </h1>
           </div>
           <p className="text-slate-500 text-sm ml-12">
-            Адаптация резюме под вакансию за секунды
+            Adapt your resume to any job in seconds
           </p>
         </header>
 

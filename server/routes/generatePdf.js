@@ -73,15 +73,15 @@ async function generateResumePDF({ resumeText, name, addedSkills = [] }) {
 
   // Header
   page.drawRectangle({ x: 0, y: PAGE_H - 80, width: PAGE_W, height: 80, color: cBg });
-  page.drawText(name || 'Резюме', { x: MARGIN, y: PAGE_H - 38, size: 22, font: fontBold, color: cWhite });
-  page.drawText('Адаптировано с помощью ResumeAI', { x: MARGIN, y: PAGE_H - 60, size: 9, font: fontRegular, color: rgb(0.6, 0.6, 0.8) });
+  page.drawText(name || 'Resume', { x: MARGIN, y: PAGE_H - 38, size: 22, font: fontBold, color: cWhite });
+  page.drawText('Adapted with ResumeAI', { x: MARGIN, y: PAGE_H - 60, size: 9, font: fontRegular, color: rgb(0.6, 0.6, 0.8) });
 
   y = PAGE_H - 98;
 
   // Added skills banner
   if (addedSkills.length > 0) {
     checkY(44);
-    const bannerText = '★  Добавлено AI: ' + addedSkills.join(' · ');
+    const bannerText = '★  Added by AI: ' + addedSkills.join(' · ');
     page.drawRectangle({ x: MARGIN, y: y - 36, width: CONTENT_W, height: 36, color: rgb(0.53, 0.39, 0.96, 0.07), borderColor: cAccent, borderWidth: 0.5 });
     page.drawText(bannerText.length > 90 ? bannerText.slice(0, 90) + '...' : bannerText, {
       x: MARGIN + 10, y: y - 23, size: 8.5, font: fontRegular, color: cAccent,
@@ -136,7 +136,7 @@ async function generateResumePDF({ resumeText, name, addedSkills = [] }) {
   // Footer on all pages
   const pages = pdfDoc.getPages();
   pages.forEach((p, i) => {
-    p.drawText(`ResumeAI  ·  стр. ${i + 1} из ${pages.length}`, {
+    p.drawText(`ResumeAI  ·  page ${i + 1} of ${pages.length}`, {
       x: MARGIN, y: 20, size: 7.5, font: fontRegular, color: cMuted,
     });
   });

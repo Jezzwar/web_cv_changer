@@ -51,7 +51,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
     }
   };
 
-  const modeLabels = { file: 'Файл', url: 'URL', text: 'Текст' };
+  const modeLabels = { file: 'File', url: 'URL', text: 'Text' };
 
   return (
     <div style={{ border: '1px solid #ffffff40', borderRadius: '12px', padding: '20px', background: '#12121f', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -85,18 +85,18 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
             <>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>✓</div>
               <p style={{ color: '#4ade80', fontWeight: 600, fontSize: '14px', margin: 0 }}>{file.name}</p>
-              <p style={{ color: '#ffffff50', fontSize: '12px', marginTop: '4px' }}>{(file.size / 1024).toFixed(1)} KB · нажмите чтобы изменить</p>
+              <p style={{ color: '#ffffff50', fontSize: '12px', marginTop: '4px' }}>{(file.size / 1024).toFixed(1)} KB · click to change</p>
             </>
           ) : isDragActive ? (
             <>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>↓</div>
-              <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '14px', margin: 0 }}>Отпустите файл</p>
+              <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '14px', margin: 0 }}>Drop file here</p>
             </>
           ) : (
             <>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>📄</div>
-              <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '14px', margin: '0 0 4px' }}>Перетащите файл сюда или нажмите</p>
-              <p style={{ color: '#ffffff60', fontSize: '12px', margin: 0 }}>Поддерживается .txt и .docx</p>
+              <p style={{ color: '#ffffff', fontWeight: 600, fontSize: '14px', margin: '0 0 4px' }}>Drag & drop file here or click</p>
+              <p style={{ color: '#ffffff60', fontSize: '12px', margin: 0 }}>Supports .txt and .docx</p>
             </>
           )}
         </div>
@@ -111,7 +111,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleFetchUrl()}
-              placeholder="https://hh.ru/vacancy/..."
+              placeholder="https://linkedin.com/jobs/view/..."
               style={{ ...INPUT_STYLE, flex: 1, height: '44px', resize: 'none' }}
               onFocus={e => e.target.style.borderColor = '#ffffff80'}
               onBlur={e => e.target.style.borderColor = '#ffffff30'}
@@ -132,7 +132,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
           </div>
           {urlError && <p style={{ color: '#fb7185', fontSize: '12px', margin: 0 }}>{urlError}</p>}
           <p style={{ color: '#ffffff40', fontSize: '11px', margin: 0 }}>
-            Поддерживается: hh.ru, LinkedIn, Indeed, SuperJob и другие
+            Supports: LinkedIn, Indeed, hh.ru, SuperJob and more
           </p>
         </div>
       )}
@@ -142,7 +142,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
         <textarea
           value={text || ''}
           onChange={e => onText(e.target.value)}
-          placeholder={`Вставьте текст ${label.toLowerCase()} сюда...`}
+          placeholder={`Paste ${label.toLowerCase()} text here...`}
           style={{ ...INPUT_STYLE, height: '160px', resize: 'vertical' }}
           onFocus={e => e.target.style.borderColor = '#ffffff80'}
           onBlur={e => e.target.style.borderColor = '#ffffff30'}
@@ -241,7 +241,7 @@ export default function UploadStep({ onNext }) {
             transition: 'all 0.2s',
           }}
         >
-          {loading ? 'Анализирую...' : 'Анализировать →'}
+          {loading ? 'Analyzing...' : 'Analyze →'}
         </button>
       </div>
     </div>
