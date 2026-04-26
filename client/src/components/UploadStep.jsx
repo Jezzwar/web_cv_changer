@@ -152,7 +152,7 @@ function FileUpload({ label, showUrlMode, onFile, onText, onUrl, file, text }) {
   );
 }
 
-export default function UploadStep({ onNext }) {
+export default function UploadStep({ onNext, token }) {
   const [jobFile, setJobFile] = useState(null);
   const [jobText, setJobText] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -179,7 +179,13 @@ export default function UploadStep({ onNext }) {
       if (resumeFile) formData.append('resumeFile', resumeFile);
       else formData.append('resumeText', resumeText);
 
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      const res = await fetch('/api/analyze', { 
+        method: 'POST', 
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData 
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка анализа');
       onNext(data);

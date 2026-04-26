@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function DownloadStep({ data, onRestart }) {
+export default function DownloadStep({ data, onRestart, token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -14,7 +14,10 @@ export default function DownloadStep({ data, onRestart }) {
     try {
       const res = await fetch('/api/generate-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           resumeText: data.adaptedResume,
           addedSkills: data.missing,
@@ -77,7 +80,7 @@ export default function DownloadStep({ data, onRestart }) {
           </div>
 
           <div className="grid grid-cols-3 gap-4 w-full">
-            {[
+            { [
               { label: 'Match', value: `${data.matchScore}%`, color: 'text-violet-400' },
               { label: 'Added', value: data.missing.length, color: 'text-emerald-400' },
               { label: 'Required', value: data.jobSkills.length, color: 'text-cyan-400' },

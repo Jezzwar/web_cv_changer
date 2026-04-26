@@ -32,16 +32,21 @@ function SkillBadge({ skill, type }) {
 }
 
 export default function AnalysisStep({ data, onNext, onBack }) {
-  const { jobSkills, matched, missing, matchScore } = data;
+  const { jobSkills, matched, missing, matchScore, suggestions = [], aiMode } = data;
 
   return (
     <div className="fade-up flex flex-col gap-6">
       <div className="glass-card rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6">
         <ScoreRing score={matchScore} />
         <div className="flex-1 text-center md:text-left">
-          <h3 className="font-display text-2xl text-slate-100 mb-1">
-            {matchScore >= 70 ? 'Great match!' : matchScore >= 40 ? 'Room for improvement' : 'Needs work'}
-          </h3>
+          <div className="flex items-center gap-2 mb-1 justify-center md:justify-start">
+            <h3 className="font-display text-2xl text-slate-100">
+              {matchScore >= 70 ? 'Great match!' : matchScore >= 40 ? 'Room for improvement' : 'Needs work'}
+            </h3>
+            {aiMode && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">AI</span>
+            )}
+          </div>
           <p className="text-slate-400 text-sm leading-relaxed">
             Your resume covers <strong className="text-slate-200">{matched.length}</strong> of{' '}
             <strong className="text-slate-200">{jobSkills.length}</strong> job requirements.
@@ -88,6 +93,23 @@ export default function AnalysisStep({ data, onNext, onBack }) {
           )}
         </div>
       </div>
+
+      {suggestions.length > 0 && (
+        <div className="glass-card rounded-2xl p-5 flex flex-col gap-3">
+          <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+            AI Suggestions
+          </h4>
+          <ul className="flex flex-col gap-2">
+            {suggestions.map((s, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
+                <span className="text-amber-400 mt-0.5 shrink-0">→</span>
+                {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-5 py-2.5 text-slate-400 hover:text-slate-200 border border-[#2a2a4a] hover:border-[#4a4a7a] rounded-xl transition-all text-sm">

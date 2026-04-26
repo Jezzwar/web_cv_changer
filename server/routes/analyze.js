@@ -9,6 +9,20 @@ const { supabase } = require('../supabase');
 const router = express.Router();
 const upload = multer({ dest: os.tmpdir() });
 
+// Groq client — only if API key is configured
+let groqClient = null;
+try {
+  if (process.env.GROQ_API_KEY) {
+    const Groq = require('groq-sdk');
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    console.log('[AI] Groq client initialized — AI mode active');
+  } else {
+    console.log('[AI] No GROQ_API_KEY — using regex mode');
+  }
+} catch (e) {
+  console.log('[AI] Groq SDK not available, using regex mode:', e.message);
+}
+
 // Known tech skills with canonical names and aliases
 const SKILL_DICTIONARY = [
   { name: 'JavaScript', aliases: ['javascript', 'js', 'es6', 'es2015', 'ecmascript'] },
@@ -215,6 +229,47 @@ function parseResumeStructure(text) {
   return sections;
 }
 
+// Groq AI analysis — returns same shape as regex analysis
+async function analyzeWithAI(jobText, resumeText) {
+  const prompt = `You are a resume analysis expert. Compare the job vacancy and the candidate's resume below.
+
+JOB VACANCY:
+${jobText.slice(0, 4000)}
+
+RESUME:
+${resumeText.slice(0, 4000)}
+
+Return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
+{
+  "jobSkills": ["skill1", "skill2"],
+  "resumeSkills": ["skill1", "skill2"],
+  "matched": ["skill1"],
+  "missing": ["skill2"],
+  "matchScore": 75,
+  "suggestions": ["Add X to highlight your experience with Y"]
+}
+
+Rules:
+- jobSkills: ALL technical skills, tools, languages, frameworks required in the vacancy
+- resumeSkills: ALL technical skills found in the resume
+- matched: skills present in BOTH lists (use canonical names from jobSkills)
+- missing: skills required by the job but absent from the resume
+- matchScore: integer 0-100 (matched.length / jobSkills.length * 100)
+- suggestions: 2-4 short actionable tips to improve the resume for this vacancy
+- Understand both Russian and English text`;
+
+  const completion = await groqClient.chat.completions.create({
+    model: 'llama3-70b-8192',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.2,
+    max_tokens: 1024,
+  });
+
+  const raw = completion.choices[0].message.content.trim();
+  const json = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  return JSON.parse(json);
+}
+
 async function extractTextFromFile(file) {
   const ext = path.extname(file.originalname).toLowerCase();
   if (ext === '.docx') {
@@ -243,20 +298,40 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
       return res.status(400).json({ error: 'Необходимо загрузить вакансию и резюме' });
     }
 
-    // 1. Extract skills
-    const jobSkills = extractSkills(jobText);          // scan full job description
-    const resumeSkills = extractResumeSkills(resumeText); // scan only Skills section
+    let jobSkills, resumeSkills, matched, missing, matchScore, suggestions = [];
     const jobRuReqs = extractRuRequirements(jobText);
 
-    // 2. Match — exact canonical comparison
-    const { matched, missing } = matchSkills(jobSkills, resumeSkills);
+    if (groqClient) {
+      // AI-powered analysis
+      console.log('[AI] Running Groq/Llama analysis...');
+      try {
+        const ai = await analyzeWithAI(jobText, resumeText);
+        jobSkills   = ai.jobSkills   || [];
+        resumeSkills = ai.resumeSkills || [];
+        matched     = ai.matched     || [];
+        missing     = ai.missing     || [];
+        matchScore  = ai.matchScore  ?? 0;
+        suggestions = ai.suggestions || [];
+        console.log('[AI] Result — matched:', matched.length, 'missing:', missing.length);
+      } catch (aiErr) {
+        console.warn('[AI] Claude failed, falling back to regex:', aiErr.message);
+        jobSkills    = extractSkills(jobText);
+        resumeSkills = extractResumeSkills(resumeText);
+        ({ matched, missing } = matchSkills(jobSkills, resumeSkills));
+        matchScore   = jobSkills.length > 0
+          ? Math.round((matched.length / jobSkills.length) * 100) : 0;
+      }
+    } else {
+      // Regex fallback
+      jobSkills    = extractSkills(jobText);
+      resumeSkills = extractResumeSkills(resumeText);
+      ({ matched, missing } = matchSkills(jobSkills, resumeSkills));
+      matchScore   = jobSkills.length > 0
+        ? Math.round((matched.length / jobSkills.length) * 100) : 0;
+    }
 
-    // 3. Build adapted resume
+    // Build adapted resume
     const adaptedResume = buildAdaptedResume(resumeText, missing);
-
-    const matchScore = jobSkills.length > 0
-      ? Math.round((matched.length / jobSkills.length) * 100)
-      : 0;
 
     // 4. Save to Supabase
     if (supabase) {
@@ -283,6 +358,8 @@ router.post('/', upload.fields([{ name: 'jobFile' }, { name: 'resumeFile' }]), a
       matched,
       missing,
       matchScore,
+      suggestions,
+      aiMode: !!groqClient,
       resumeSections: Object.keys(parseResumeStructure(resumeText)),
       adaptedResume,
       originalResume: resumeText,

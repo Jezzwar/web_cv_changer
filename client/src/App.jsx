@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UploadStep from './components/UploadStep';
 import AnalysisStep from './components/AnalysisStep';
 import ReviewStep from './components/ReviewStep';
 import DownloadStep from './components/DownloadStep';
+import AuthStep from './components/AuthStep';
 
+const AUTH_STEP = { id: -1, label: 'Login' };
 const STEPS = [
   { id: 0, label: 'Upload' },
   { id: 1, label: 'Analysis' },
@@ -52,9 +54,17 @@ function ProgressBar({ step }) {
 }
 
 export default function App() {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(-1); // Start at auth
+  const [token, setToken] = useState(localStorage.getItem('auth_token') || null);
   const [analysisData, setAnalysisData] = useState(null);
   const [finalData, setFinalData] = useState(null);
+
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      setStep(0);
+    }
+  }, [token]);
 
   const handleAnalysisDone = (data) => {
     setAnalysisData(data);
@@ -102,27 +112,36 @@ export default function App() {
         </div>
 
         {/* Step content */}
+        
         <main className="fade-up-delay-2">
-          {step === 0 && <UploadStep onNext={handleAnalysisDone} />}
-          {step === 1 && analysisData && (
-            <AnalysisStep
-              data={analysisData}
-              onNext={() => setStep(2)}
-              onBack={() => setStep(0)}
-            />
-          )}
-          {step === 2 && analysisData && (
-            <ReviewStep
-              data={analysisData}
-              onNext={handleReviewDone}
-              onBack={() => setStep(1)}
-            />
-          )}
-          {step === 3 && finalData && (
-            <DownloadStep
-              data={finalData}
-              onRestart={handleRestart}
-            />
+          {step === -1 && <AuthStep onAuthSuccess={(t) => setToken(t)} />}
+
+          {step >= 0 && (
+            <>
+              {step === 0 && <UploadStep onNext={handleAnalysisDone} token={token} />}
+              {step === 1 && analysisData && (
+                <AnalysisStep
+                  data={analysisData}
+                  onNext={() => setStep(2)}
+                  onBack={() => setStep(0)}
+                  token={token}
+                />
+              )}
+              {step === 2 && analysisData && (
+                <ReviewStep
+                  data={analysisData}
+                  onNext={handleReviewDone}
+                  onBack={() => setStep(1)}
+                />
+              )}
+              {step === 3 && finalData && (
+                <DownloadStep
+                  data={finalData}
+                  onRestart={handleRestart}
+                  token={token}
+                />
+              )}
+            </>
           )}
         </main>
       </div>
