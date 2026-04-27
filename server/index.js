@@ -1,4 +1,6 @@
 require('dotenv').config();
+process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+process.on('uncaughtException',  (err) => console.error('[uncaughtException]',  err));
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -18,7 +20,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
 app.use(cors({
   origin: (origin, callback) => {
     // Allow server-to-server requests (no origin) and listed origins
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -49,16 +51,20 @@ const generalLimiter = rateLimit({
 
 // Middleware to verify JWT token
 const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized — no token' });
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized — no token' });
+    }
+    const user = await verifyToken(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized — invalid token' });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    next(err);
   }
-  const user = await verifyToken(token);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized — invalid token' });
-  }
-  req.user = user;
-  next();
 };
 
 app.use('/api/analyze', analyzeLimiter, authMiddleware, analyzeRouter);
@@ -78,5 +84,11 @@ app.post('/api/parse-url', generalLimiter, authMiddleware, async (req, res) => {
 app.get('/api/usage', authMiddleware, (req, res) => res.json(usage.getStatus()));
 
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// JSON error handler — catches CORS rejections and other middleware errors
+app.use((err, req, res, next) => {
+  console.error('[error]', err.message);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
